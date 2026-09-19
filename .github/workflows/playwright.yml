@@ -6,18 +6,17 @@ on:
     branches: [ main, master ]
   workflow_dispatch:
 
-# 1. DODATO: Dozvole koje omogućavaju GitHub-u da napravi sajt od izveštaja
 permissions:
   contents: read
   pages: write
   id-token: write
 
-# Omogućava samo jedan istovremeni deployment na GitHub Pages da se ne bi sudarali
 concurrency:
   group: "pages"
   cancel-in-progress: false
 
 jobs:
+  # 1. POSAO: Pokretanje testova i pakovanje rezultata (CI)
   test:
     timeout-minutes: 60
     runs-on: ubuntu-latest
@@ -36,7 +35,6 @@ jobs:
     - name: Run Playwright tests
       run: npx playwright test --project=chromium
 
-    # Tvoj stari CI korak koji i dalje čuva fajl u arhivi za svaki slučaj
     - uses: actions/upload-artifact@v4
       if: ${{ !cancelled() }}
       with:
@@ -44,18 +42,21 @@ jobs:
         path: playwright-report/
         retention-days: 30
 
-    # 2. DODATO: CD DEO - Priprema (pakovanje) izveštaja za sajt
-    - name: Setup Pages
-      if: ${{ !cancelled() }}
-      uses: actions/configure-pages@v5
-
     - name: Upload artifact for deployment
       if: ${{ !cancelled() }}
       uses: actions/upload-pages-artifact@v3
       with:
         path: 'playwright-report/'
 
-    # 3. DODATO: CD DEO - Objavljivanje izveštaja na internet
+  # 2. POSAO: Samostalni deployment koji izbacuje link na ekran (CD)
+  deploy:
+    needs: test # Ovaj posao čeka da se testovi uspešno završe
+    if: ${{ !cancelled() }} # Pokreće se čak i ako testovi padnu, da uvek imaš izveštaj
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
     - name: Deploy to GitHub Pages
-      if: ${{ !cancelled() }}
+      id: deployment
       uses: actions/deploy-pages@v4
